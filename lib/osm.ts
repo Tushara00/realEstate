@@ -18,5 +18,8 @@ export async function searchAddress(query: string) {
     }
   );
 
-  return res.json();
+  const data = await res.json();
+ console.log("Nominatim Response:", data);
+ 
+   return data.length > 0 ? [data[0]] : [];
 }

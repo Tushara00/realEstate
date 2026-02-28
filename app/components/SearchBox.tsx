@@ -85,7 +85,7 @@ console.log("LAT:", place.lat);
               onClick={() => handleSelect(place)}
               className="px-3 py-2 cursor-pointer hover:bg-gray-100"
             >
-              {place.display_name}
+              {place.display_name.split(", ").slice(0, 3).join(", ")}
             </li>
           ))}
         </ul>

@@ -1,11 +1,6 @@
 import { integer, pgTable, varchar ,serial,text} from "drizzle-orm/pg-core";
 
-export const usersTable = pgTable("users", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  name: varchar({ length: 255 }).notNull(),
-  age: integer().notNull(),
-  email: varchar({ length: 255 }).notNull().unique(),
-});
+
 export const citiesTable = pgTable("cities", {
   id: serial("id").primaryKey(),
 
@@ -21,7 +16,7 @@ export const housesTable = pgTable("houses", {
 
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
-
+slug: text("slug").notNull().unique(),
   price: integer("price").notNull(),
 
   bedrooms: integer("bedrooms").notNull(),
