@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/app/admin/db/index";
-import { users,emailVerificationTokens  } from "@/app/admin/db/schema";
+import { users, emailVerificationTokens } from "@/app/admin/db/schema";
 import { signupSchema } from "@/lib/validations/auth";
 import { hashPassword } from "@/lib/auth/password";
 import { createSession } from "@/lib/auth/session";
 import { generateSessionToken } from "@/lib/auth/tokens";
+import { sendEmailVerification } from "@/lib/mail/email";
 
 export async function POST(req: Request) {
   try {
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
 
     const { name, email, password } = parsed.data;
 
-    // Check if user already exists
+    // 1. Check for existing user
     const [existingUser] = await db
       .select()
       .from(users)
@@ -29,57 +30,46 @@ export async function POST(req: Request) {
       .limit(1);
 
     if (existingUser) {
-      return NextResponse.json(
-        { message: "Email already exists" },
-        { status: 409 }
-      );
+      return NextResponse.json({ message: "Email already exists" }, { status: 409 });
     }
 
-    // Hash password
+    // 2. Create the user
     const passwordHash = await hashPassword(password);
-
-    // Insert new user
     const [newUser] = await db
       .insert(users)
-      .values({
-        name,
-        email,
-        passwordHash,
-      })
+      .values({ name, email, passwordHash })
       .returning();
 
+    // 3. Prepare for session
     const userAgent = req.headers.get("user-agent") ?? undefined;
+    const ipAddress = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined;
+    const rawToken = generateSessionToken();
 
-    const ipAddress =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? undefined;
-// email verivication token
-const tokenHash = generateSessionToken();
- await db.insert(emailVerificationTokens).values({
-    userId: newUser.id,                   // <-- actual UUID string
-    tokenHash: tokenHash,
-    expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24), // 24h expiry
-  });
-    // 4️⃣ Send email
-  await sendEmailVerification(email, token);
-    // Create session
+    await db.insert(emailVerificationTokens).values({
+      userId: newUser.id,
+      tokenHash: rawToken,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
+    });
+
+    // 4. Attempt email, but handle failure gracefully
+   
+
+      await sendEmailVerification(email, rawToken);
+   
+
+    // 5. Final Step: Create session once and return one response
     await createSession(newUser.id, ipAddress, userAgent);
 
     return NextResponse.json(
       {
-        message: "Signup successful check you email",
-        user: {
-          id: newUser.id,
-          email: newUser.email,
-          role: newUser.role,
-        },
+        message: "success",
+        user: { id: newUser.id, email: newUser.email, role: newUser.role },
       },
-      { status: 200 }
+      { status: 201 }
     );
+
   } catch (error) {
     console.error("SIGNUP_ERROR", error);
-    return NextResponse.json(
-      { message: "Something went wrong" },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: "Something went wrong" }, { status: 500 });
   }
 }

@@ -22,7 +22,7 @@ export default function SignUp(){
          const data = await res.json();
          if(res.ok){
           alert(data.message);
-          router.push("/login");
+          router.push(`/check-email?email=${encodeURIComponent(email)}`);
          }else{
           alert(data.message || "Sign up failed")
          }
