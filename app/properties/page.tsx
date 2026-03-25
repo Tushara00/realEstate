@@ -1,12 +1,10 @@
 import { db } from "@/app/admin/db/index";
 import { housesTable, citiesTable } from "../admin/db/schema";
-import { eq, ilike, or } from "drizzle-orm";
+import { eq, ilike, or,lte,and,gte } from "drizzle-orm";
 import PropertyCard from "../admin/components/property/PropertyCard";
-import { generateSlug } from "../admin/lib/utils";
+import FilterForm from "../admin/components/property/FilterForm";
+import { getFilteredHouses } from "../admin/db/property.queries";
 
-/* -----------------------------
-Extract slug candidates
-------------------------------*/
 function getSlugCandidates(query?: string) {
   if (!query) return [];
 
@@ -16,18 +14,24 @@ function getSlugCandidates(query?: string) {
     .filter(Boolean);
 }
 
-/* -----------------------------
-Database Query Function
-------------------------------*/
-async function queryFromDb(slug?: string) {
-  const candidates = getSlugCandidates(slug);
+async function queryFromDb(filters:{
+    q?: string;
+  bedrooms?: number;
+  minPrice?: number;
+  maxPrice?: number;
+}){
+   const { q, bedrooms, minPrice, maxPrice } = filters;
+
+     const candidates = getSlugCandidates(q);
+  const conditions = [];
 
   const query = db
-    .select({
+  .select({
       id: housesTable.id,
       title: housesTable.title,
       price: housesTable.price,
-    slug: housesTable.slug,
+      slug: housesTable.slug,
+      bedrooms: housesTable.bedrooms,
       city: citiesTable.name,
     })
     .from(housesTable)
@@ -36,14 +40,31 @@ async function queryFromDb(slug?: string) {
       eq(housesTable.cityId, citiesTable.id)
     );
 
+  // City filter
   if (candidates.length > 0) {
-    query.where(
+    conditions.push(
       or(
         ...candidates.map((s) =>
           ilike(citiesTable.slug, `%${s}%`)
         )
       )
     );
+  }
+// Bedroom filter
+  if (bedrooms !== undefined) {
+    conditions.push(eq(housesTable.bedrooms, bedrooms));
+  }
+
+  // Price filter
+  if (minPrice !== undefined) {
+    conditions.push(gte(housesTable.price, minPrice));
+  }
+
+  if (maxPrice !== undefined) {
+    conditions.push(lte(housesTable.price, maxPrice));
+  }
+    if (conditions.length > 0) {
+    query.where(and(...conditions));
   }
 
   return await query;
@@ -53,7 +74,11 @@ async function queryFromDb(slug?: string) {
 Page Props
 ------------------------------*/
 interface Props { 
-  searchParams: Promise<{ q?: string; }>; }
+  searchParams: Promise<{ q?: string;
+    bedrooms?: number;
+  minPrice?: number;
+  maxPrice?: number;
+   }>; }
 
 /* -----------------------------
 Page Component
@@ -63,12 +88,23 @@ export default async function PropertiesPage({
 }: Props) {
   
   const params = await searchParams;
-    const slug = params?.q;
+ 
 
-  const properties = await queryFromDb(slug);
+  const properties = await queryFromDb({
+    q:params?.q,
+    bedrooms:params?.bedrooms?Number(params.bedrooms):undefined,
+     minPrice: params?.minPrice
+      ? Number(params.minPrice)
+      : undefined,
+    maxPrice: params?.maxPrice
+      ? Number(params.maxPrice)
+      : undefined,
+  });
+ 
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <FilterForm />
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {properties.map((house) => (
           <PropertyCard
@@ -78,6 +114,40 @@ export default async function PropertiesPage({
             price={house.price}
             city={house.city}
           slug={house.slug}
+          bedrooms={house.bedrooms}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+export  async function PropertiesPage2({
+  searchParams,
+}: Props) {
+  
+  const params = await searchParams;
+
+const {  bedrooms, minPrice, maxPrice,q } = params;
+  
+  const properties2 = await queryFromDb({bedrooms})
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <FilterForm />
+      
+
+       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        {properties2.map((house) => (
+          <PropertyCard
+            key={house.id}
+            id={house.id}
+            title={house.title}
+            price={house.price}
+            city={house.city}
+          slug={house.slug}
+          bedrooms={house.bedrooms}
           />
         ))}
       </div>

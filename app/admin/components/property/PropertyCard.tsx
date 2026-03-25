@@ -8,10 +8,11 @@ interface PropertyCardProps{
   price: number;
   city?:string | null;
   imageUrl?:string;
-  slug?:string
+  slug?:string;
+  bedrooms?:string;
 
 }
-export default function PropertyCard({title,price,city,imageUrl,id,slug}:PropertyCardProps) {
+export default function PropertyCard({title,price,city,imageUrl,id,slug,bedrooms}:PropertyCardProps) {
   return (
     <>
     <div className="min-h-screen w-full p-6">
@@ -28,7 +29,7 @@ export default function PropertyCard({title,price,city,imageUrl,id,slug}:Propert
 </div>
         <div className="p-5">
           <h2 className="text-xl font-semibold mb-2">{title}</h2>
-          <p className="text-gray-600 mb-3">3 Beds • 2 Baths • 2200 sqft</p>
+          <p className="text-gray-600 mb-3">{bedrooms}</p>
           <p className="text-lg font-bold text-indigo-600">{price}</p>
           <p>{city}</p>
         </div>
